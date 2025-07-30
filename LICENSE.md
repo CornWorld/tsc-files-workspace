@@ -1,6 +1,7 @@
 MIT License
 
-Copyright (c) 2020 Gustavo P. Cardoso
+Copyright (c) 2020-2025 Gustavo P. Cardoso
+Copyright (c) 2025 CornWorld <github.contact@corn.im>
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
