@@ -21,7 +21,7 @@ This enhanced version detects workspace configurations automatically and ensures
 - ✅ **NEW**: Group files by their closest `tsconfig.json`
 - ✅ **NEW**: Process each workspace package separately
 - ✅ Support for monorepo projects
-- ✅ Backward compatible with original `tsc-files-workspace`
+- ✅ Backward compatible with original [tsc-files](https://www.npmjs.com/package/tsc-files)
 
 ## Installation
 
