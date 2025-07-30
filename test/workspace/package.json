@@ -1,0 +1,12 @@
+{
+  "name": "test-workspace",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": [
+    "packages/*",
+    "shared"
+  ],
+  "devDependencies": {
+    "typescript": "^4.1.6"
+  }
+}

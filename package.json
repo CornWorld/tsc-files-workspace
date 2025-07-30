@@ -1,16 +1,20 @@
 {
   "name": "tsc-files-workspace",
-  "version": "1.0.1",
+  "version": "2.0.0",
   "description": "A tiny tool to run tsc on specific files without ignoring tsconfig.json, with PNPM workspace support",
   "license": "MIT",
   "author": "CornWorld",
   "repository": "github:CornWorld/tsc-files-workspace",
+  "type": "module",
   "bin": {
-    "tsc-files": "cli.js"
+    "tsc-files-workspace": "cli.js"
   },
   "files": [
     "cli.js"
   ],
+  "scripts": {
+    "test": "node test/simple-test.js"
+  },
   "prettier": {
     "arrowParens": "avoid",
     "semi": false,
@@ -21,6 +25,6 @@
     "typescript": ">=3"
   },
   "devDependencies": {
-    "typescript": "4.1.3"
+    "typescript": "4.1.6"
   }
 }

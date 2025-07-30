@@ -7,7 +7,6 @@ import { dirname, join, resolve } from 'path'
 const randomChars = () => {
   return Math.random().toString(36).slice(2)
 }
-
 const resolveFromModule = (moduleName, ...paths) => {
   try {
     // Try to resolve using import.meta.resolve (Node.js 20.6+)
@@ -106,7 +105,7 @@ const tmpConfigPaths = []
 let overallStatus = 0
 
 if (workspaceRoot && !argsProjectValue) {
-  console.log('Using workspace mode')
+  // Using workspace mode
   // Group files by their closest tsconfig
   const fileGroups = groupFilesByTsconfig(files, workspaceRoot)
 
@@ -127,32 +126,55 @@ if (workspaceRoot && !argsProjectValue) {
       compilerOptions: {
         ...tsconfig.compilerOptions,
         skipLibCheck: true,
-        verbatimModuleSyntax: false,
       },
       files: groupFiles,
       include: [],
     }
+    // Remove rootDir to avoid path conflicts when checking files from different locations
+    delete tmpTsconfig.compilerOptions.rootDir
     fs.writeFileSync(tmpTsconfigPath, JSON.stringify(tmpTsconfig, null, 2))
 
     // Type-check files for this group
-    const { status } = spawnSync(
-      process.versions.pnp
-        ? 'tsc'
-        : resolveFromModule(
-            'typescript',
-            `../.bin/tsc${process.platform === 'win32' ? '.cmd' : ''}`,
-          ),
+    // Try to find TypeScript in the workspace package first
+    let tscPath
+    if (process.versions.pnp) {
+      tscPath = 'tsc'
+    } else {
+      // Look for TypeScript in workspace node_modules first
+      // Go up two levels from tsconfig to reach package root, then look for node_modules
+      const packageRoot = join(dirname(tsconfigPath), '..', '..')
+      const workspaceTscPath = join(packageRoot, 'node_modules', '.bin', `tsc${process.platform === 'win32' ? '.cmd' : ''}`)
+      if (fs.existsSync(workspaceTscPath)) {
+        tscPath = workspaceTscPath
+        // Using workspace TypeScript
+      } else {
+        // Fall back to root workspace TypeScript
+        tscPath = resolveFromModule(
+          'typescript',
+          `../.bin/tsc${process.platform === 'win32' ? '.cmd' : ''}`,
+        )
+        // Using root TypeScript
+      }
+    }
+    const result = spawnSync(
+      tscPath,
       ['-p', tmpTsconfigPath, ...remainingArgsToForward],
       { stdio: 'inherit' },
     )
+    const { status } = result
 
-    if (status !== 0) {
+    if (status !== 0 && status !== null) {
       overallStatus = status
     }
   }
 } else {
   // Original behavior for non-workspace or when project is specified
   const tsconfigPath = argsProjectValue || resolveFromRoot('tsconfig.json')
+  if (!fs.existsSync(tsconfigPath)) {
+    console.error(`Error: tsconfig.json not found at ${tsconfigPath}`)
+    process.exit(1)
+  }
+
   const tsconfigContent = fs.readFileSync(tsconfigPath).toString()
   let tsconfig = {}
   eval(`tsconfig = ${tsconfigContent}`)
@@ -171,8 +193,14 @@ if (workspaceRoot && !argsProjectValue) {
   }
   fs.writeFileSync(tmpTsconfigPath, JSON.stringify(tmpTsconfig, null, 2))
 
+  const tscPath = process.versions.pnp
+    ? 'tsc'
+    : resolveFromModule(
+        'typescript',
+        `../.bin/tsc${process.platform === 'win32' ? '.cmd' : ''}`,
+      )
   const { status } = spawnSync(
-    'tsc',
+    tscPath,
     ['-p', tmpTsconfigPath, ...remainingArgsToForward],
     { stdio: 'inherit' },
   )
@@ -182,24 +210,27 @@ if (workspaceRoot && !argsProjectValue) {
 
 // Attach cleanup handlers
 let didCleanup = false
-for (const eventName of ['exit', 'SIGHUP', 'SIGINT', 'SIGTERM']) {
-  process.on(eventName, exitCode => {
-    if (didCleanup) return
-    didCleanup = true
+const preserveTempConfigs = process.env.TSC_FILES_PRESERVE_TEMP === 'true'
 
-    // Clean up all temp config files
-    tmpConfigPaths.forEach(path => {
-      try {
-        fs.unlinkSync(path)
-      } catch {
-        // Ignore cleanup errors
+if (!preserveTempConfigs) {
+  for (const eventName of ['exit', 'SIGHUP', 'SIGINT', 'SIGTERM']) {
+    process.on(eventName, exitCode => {
+      if (didCleanup) return
+      didCleanup = true
+
+      tmpConfigPaths.forEach(path => {
+        try {
+          fs.unlinkSync(path)
+        } catch {
+          // Ignore cleanup errors
+        }
+      })
+
+      if (eventName !== 'exit') {
+        process.exit(exitCode)
       }
     })
-
-    if (eventName !== 'exit') {
-      process.exit(exitCode)
-    }
-  })
+  }
 }
 
 process.exit(overallStatus)
